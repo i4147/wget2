@@ -1,18 +1,17 @@
 from __future__ import annotations
 
-import argparse
 import asyncio
-import shutil
-import subprocess
 import sys
-import tempfile
 import time
+from abc import ABC, abstractmethod
 from collections.abc import Callable
 from io import BytesIO
 from multiprocessing import Pool, Value
 from pathlib import Path
+from typing import TypeAlias
 from urllib.parse import urlparse
 
+import typer
 from rich.console import Console
 from rich.progress import (
     BarColumn,
@@ -25,30 +24,26 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-# ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
+CHUNK_THRESHOLD = 10 * 1024 * 1024
+STREAM_CHUNK = 1024 * 1024
+POLL_INTERVAL = 0.1
 
-CHUNK_THRESHOLD = 10 * 1024 * 1024   # >10 MiB → stream parts to disk
-STREAM_CHUNK = 1024 * 1024           # 1 MiB per read
-POLL_INTERVAL = 0.1                  # seconds between progress polls
+Sink: TypeAlias = Callable[[bytes], object]
+ConsoleType: TypeAlias = Console
 
-Sink = Callable[[bytes], object]
-HeadFn = Callable[[str], int]
-FetchRangeFn = Callable[[str, int, int, Sink], None]
-Backend = tuple[HeadFn, FetchRangeFn]
-BackendFactory = Callable[[], Backend]
+class DownloadBackend(ABC):
+    @abstractmethod
+    def head(self, url: str) -> int:
+        ...
 
+    @abstractmethod
+    def fetch_range(self, url: str, start: int, end: int, sink: Sink) -> None:
+        ...
 
-# ---------------------------------------------------------------------------
-# Backends
-# ---------------------------------------------------------------------------
+class RequestsBackend(DownloadBackend):
+    def head(self, url: str) -> int:
+        import requests
 
-def make_requests_backend() -> Backend:
-    """Synchronous backend built on :mod:`requests`."""
-    import requests
-
-    def head(url: str) -> int:
         resp = requests.head(url, allow_redirects=True)
         resp.raise_for_status()
         cl = resp.headers.get("content-length")
@@ -56,7 +51,9 @@ def make_requests_backend() -> Backend:
             raise RuntimeError("Server does not provide content-length.")
         return int(cl)
 
-    def fetch_range(url: str, start: int, end: int, sink: Sink) -> None:
+    def fetch_range(self, url: str, start: int, end: int, sink: Sink) -> None:
+        import requests
+
         with requests.get(
             url,
             headers={"Range": f"bytes={start}-{end}"},
@@ -67,14 +64,10 @@ def make_requests_backend() -> Backend:
                 if chunk:
                     sink(chunk)
 
-    return head, fetch_range
+class PycurlBackend(DownloadBackend):
+    def head(self, url: str) -> int:
+        import pycurl
 
-
-def make_pycurl_backend() -> Backend:
-    """Synchronous backend built on :mod:`pycurl`."""
-    import pycurl
-
-    def head(url: str) -> int:
         headers: dict[str, str] = {}
 
         def header_cb(line: bytes) -> int:
@@ -93,13 +86,14 @@ def make_pycurl_backend() -> Backend:
             c.perform()
         finally:
             c.close()
-
         cl = headers.get("content-length")
         if cl is None:
             raise RuntimeError("Server does not provide content-length.")
         return int(cl)
 
-    def fetch_range(url: str, start: int, end: int, sink: Sink) -> None:
+    def fetch_range(self, url: str, start: int, end: int, sink: Sink) -> None:
+        import pycurl
+
         def _write(data: bytes) -> int:
             sink(data)
             return len(data)
@@ -117,40 +111,10 @@ def make_pycurl_backend() -> Backend:
         finally:
             c.close()
 
-    return head, fetch_range
+class HttpxBackend(DownloadBackend):
+    def head(self, url: str) -> int:
+        import httpx
 
-
-def make_pure_backend() -> Backend:
-    """Pure-stdlib backend using :mod:`urllib.request`."""
-    import urllib.request
-
-    def head(url: str) -> int:
-        req = urllib.request.Request(url, method="HEAD")
-        with urllib.request.urlopen(req) as resp:
-            cl = resp.headers.get("Content-Length")
-        if cl is None:
-            raise RuntimeError("Server does not provide content-length.")
-        return int(cl)
-
-    def fetch_range(url: str, start: int, end: int, sink: Sink) -> None:
-        req = urllib.request.Request(
-            url, headers={"Range": f"bytes={start}-{end}"}
-        )
-        with urllib.request.urlopen(req) as resp:
-            while True:
-                chunk = resp.read(STREAM_CHUNK)
-                if not chunk:
-                    break
-                sink(chunk)
-
-    return head, fetch_range
-
-
-def make_httpx_backend() -> Backend:
-    """Synchronous backend built on :mod:`httpx`."""
-    import httpx
-
-    def head(url: str) -> int:
         with httpx.Client(follow_redirects=True) as client:
             resp = client.head(url)
             resp.raise_for_status()
@@ -159,30 +123,26 @@ def make_httpx_backend() -> Backend:
                 raise RuntimeError("Server does not provide content-length.")
             return int(cl)
 
-    def fetch_range(url: str, start: int, end: int, sink: Sink) -> None:
+    def fetch_range(self, url: str, start: int, end: int, sink: Sink) -> None:
+        import httpx
+
         with httpx.Client(follow_redirects=True) as client:
-            with client.stream(
-                "GET", url, headers={"Range": f"bytes={start}-{end}"}
-            ) as r:
+            with client.stream("GET", url, headers={"Range": f"bytes={start}-{end}"}) as r:
                 r.raise_for_status()
                 for chunk in r.iter_bytes(STREAM_CHUNK):
                     if chunk:
                         sink(chunk)
 
-    return head, fetch_range
+class HttpxAsyncBackend(DownloadBackend):
+    def head(self, url: str) -> int:
+        return asyncio.run(self._head_async(url))
 
+    def fetch_range(self, url: str, start: int, end: int, sink: Sink) -> None:
+        asyncio.run(self._fetch_async(url, start, end, sink))
 
-def make_httpx_async_backend() -> Backend:
-    """Async :mod:`httpx` backend.
+    async def _head_async(self, url: str) -> int:
+        import httpx
 
-    Each call drives its own event loop via :func:`asyncio.run`, which keeps
-    the overall architecture identical to the synchronous backends (one
-    process / one range) while still using ``httpx.AsyncClient`` under the
-    hood.
-    """
-    import httpx
-
-    async def _head_async(url: str) -> int:
         async with httpx.AsyncClient(follow_redirects=True) as client:
             resp = await client.head(url)
             resp.raise_for_status()
@@ -191,158 +151,38 @@ def make_httpx_async_backend() -> Backend:
                 raise RuntimeError("Server does not provide content-length.")
             return int(cl)
 
-    async def _fetch_async(
-        url: str, start: int, end: int, sink: Sink
-    ) -> None:
+    async def _fetch_async(self, url: str, start: int, end: int, sink: Sink) -> None:
+        import httpx
+
         async with httpx.AsyncClient(follow_redirects=True) as client:
-            async with client.stream(
-                "GET", url, headers={"Range": f"bytes={start}-{end}"}
-            ) as r:
+            async with client.stream("GET", url, headers={"Range": f"bytes={start}-{end}"}) as r:
                 r.raise_for_status()
                 async for chunk in r.aiter_bytes(STREAM_CHUNK):
                     if chunk:
                         sink(chunk)
 
-    def head(url: str) -> int:
-        return asyncio.run(_head_async(url))
-
-    def fetch_range(url: str, start: int, end: int, sink: Sink) -> None:
-        asyncio.run(_fetch_async(url, start, end, sink))
-
-    return head, fetch_range
-
-
-def _http_head_via_urllib(url: str) -> int:
-    """HEAD via urllib; used as a helper by subprocess-based backends."""
-    import urllib.request
-
-    req = urllib.request.Request(url, method="HEAD")
-    with urllib.request.urlopen(req) as resp:
-        cl = resp.headers.get("Content-Length")
-    if cl is None:
-        raise RuntimeError("Server does not provide content-length.")
-    return int(cl)
-
-
-def _stream_pipe(proc: subprocess.Popen, sink: Sink, tool: str) -> None:
-    """Forward ``proc.stdout`` to ``sink`` and raise on non-zero exit."""
-    assert proc.stdout is not None
-    try:
-        while True:
-            chunk = proc.stdout.read(STREAM_CHUNK)
-            if not chunk:
-                break
-            sink(chunk)
-    finally:
-        proc.wait()
-    if proc.returncode != 0:
-        err = (
-            proc.stderr.read().decode("utf-8", "replace")
-            if proc.stderr
-            else ""
-        )
-        raise RuntimeError(f"{tool} exited with {proc.returncode}: {err.strip()}")
-
-
-def make_curl_backend() -> Backend:
-    """Backend that shells out to the ``curl`` binary for each range."""
-
-    def head(url: str) -> int:
-        return _http_head_via_urllib(url)
-
-    def fetch_range(url: str, start: int, end: int, sink: Sink) -> None:
-        proc = subprocess.Popen(
-            ["curl", "-sL", "-r", f"{start}-{end}", url],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        _stream_pipe(proc, sink, "curl")
-
-    return head, fetch_range
-
-
-def make_aria2c_backend() -> Backend:
-    """Backend that shells out to the ``aria2c`` binary for each range.
-
-    ``aria2c`` does not stream directly to a pipe cleanly across all
-    versions, so each worker downloads its range to a temporary file and
-    then replays it through ``sink``.
-    """
-
-    def head(url: str) -> int:
-        return _http_head_via_urllib(url)
-
-    def fetch_range(url: str, start: int, end: int, sink: Sink) -> None:
-        with tempfile.TemporaryDirectory(prefix="wget2-aria2c-") as tmp:
-            out_file = Path(tmp) / "part"
-            proc = subprocess.run(
-                [
-                    "aria2c",
-                    "--quiet=true",
-                    "--allow-overwrite=true",
-                    "--max-connection-per-server=1",
-                    "--split=1",
-                    "--file-allocation=none",
-                    "--max-tries=1",
-                    "--header",
-                    f"Range: bytes={start}-{end}",
-                    "--dir",
-                    tmp,
-                    "--out",
-                    out_file.name,
-                    url,
-                ],
-                capture_output=True,
-            )
-            if proc.returncode != 0:
-                err = proc.stderr.decode("utf-8", "replace")
-                raise RuntimeError(
-                    f"aria2c exited with {proc.returncode}: {err.strip()}"
-                )
-            with out_file.open("rb") as f:
-                while True:
-                    chunk = f.read(STREAM_CHUNK)
-                    if not chunk:
-                        break
-                    sink(chunk)
-
-    return head, fetch_range
-
-
-BACKENDS: dict[str, BackendFactory] = {
-    "requests": make_requests_backend,
-    "pycurl": make_pycurl_backend,
-    "pure": make_pure_backend,
-    "httpx": make_httpx_backend,
-    "httpx_async": make_httpx_async_backend,
-    "aria2c": make_aria2c_backend,
-    "curl": make_curl_backend,
+BACKENDS: dict[str, type[DownloadBackend]] = {
+    "requests": RequestsBackend,
+    "pycurl": PycurlBackend,
+    "httpx": HttpxBackend,
+    "httpx_async": HttpxAsyncBackend,
 }
 
 DEFAULT_BACKEND = "httpx_async"
 
-
-# ---------------------------------------------------------------------------
-# Multiprocessing workers (must be top-level to be picklable)
-# ---------------------------------------------------------------------------
-
 def _range_worker_memory(task: tuple[str, str, int, int]) -> tuple[int, bytes]:
-    """Download a range into memory (used for small files)."""
     backend_name, url, start, end = task
-    _, fetch_range = BACKENDS[backend_name]()
+    backend = BACKENDS[backend_name]()
     buf = BytesIO()
-    fetch_range(url, start, end, buf.write)
+    backend.fetch_range(url, start, end, buf.write)
     return start, buf.getvalue()
 
-
 def _range_worker_chunked(
-    task: tuple[str, str, int, int, str, "Value"],
+    task: tuple[str, str, int, int, str, Value],
 ) -> tuple[int, str, int]:
-    """Download a range to its own part-file (used for large files)."""
     backend_name, url, start, end, part_path_str, counter = task
-    _, fetch_range = BACKENDS[backend_name]()
+    backend = BACKENDS[backend_name]()
     part_path = Path(part_path_str)
-
     written = 0
     with part_path.open("wb") as f:
 
@@ -353,22 +193,13 @@ def _range_worker_chunked(
             with counter.get_lock():
                 counter.value += len(chunk)
 
-        fetch_range(url, start, end, sink)
-
+        backend.fetch_range(url, start, end, sink)
     expected = end - start + 1
     if written != expected:
-        raise RuntimeError(
-            f"Range {start}-{end}: expected {expected} bytes, got {written}"
-        )
+        raise RuntimeError(f"Range {start}-{end}: expected {expected} bytes, got {written}")
     return start, str(part_path), written
 
-
-# ---------------------------------------------------------------------------
-# Progress bar
-# ---------------------------------------------------------------------------
-
 def _make_progress() -> Progress:
-    """Build a rich progress bar with bytes / speed / elapsed / ETA."""
     return Progress(
         SpinnerColumn(),
         TextColumn("[bold blue]{task.description}"),
@@ -380,23 +211,12 @@ def _make_progress() -> Progress:
         transient=False,
     )
 
-
-# ---------------------------------------------------------------------------
-# Range planning
-# ---------------------------------------------------------------------------
-
 def _plan_ranges(file_size: int, connections: int) -> list[tuple[int, int]]:
-    """Split ``file_size`` into ``connections`` inclusive ranges."""
     connections = max(1, min(connections, file_size))
     chunk = file_size // connections
     ranges = [(i * chunk, (i + 1) * chunk - 1) for i in range(connections)]
     ranges[-1] = (ranges[-1][0], file_size - 1)
     return ranges
-
-
-# ---------------------------------------------------------------------------
-# Download strategies
-# ---------------------------------------------------------------------------
 
 def _download_buffered(
     url: str,
@@ -405,37 +225,29 @@ def _download_buffered(
     file_size: int,
     num_connections: int,
 ) -> list[tuple[int, bytes]]:
-    """Download each range into memory and return them sorted by start."""
     results: list[tuple[int, bytes]] = []
-
     with _make_progress() as progress:
         task_id = progress.add_task("Downloading", total=file_size)
-
         with Pool(processes=num_connections) as pool:
             pending = [
                 (
-                    pool.apply_async(
-                        _range_worker_memory, ((backend_name, url, s, e),)
-                    ),
+                    pool.apply_async(_range_worker_memory, ((backend_name, url, s, e),)),
                     s,
                 )
                 for s, e in ranges
             ]
-
             while pending:
                 for item in list(pending):
                     ar, _ = item
                     if not ar.ready():
                         continue
-                    _, data = ar.get()
-                    results.append((_, data))
+                    start, data = ar.get()
+                    results.append((start, data))
                     progress.update(task_id, advance=len(data))
                     pending.remove(item)
                 if pending:
                     time.sleep(POLL_INTERVAL / 4)
-
     return results
-
 
 def _download_chunked(
     url: str,
@@ -445,18 +257,14 @@ def _download_chunked(
     num_connections: int,
     out_path: Path,
 ) -> None:
-    """Download each range to a part-file, then concatenate them."""
-    part_paths: dict[int, Path] = {
-        s: out_path.with_name(f".{out_path.name}.part{s}") for s, _ in ranges
-    }
+    import shutil
 
+    part_paths = {s: out_path.with_name(f".{out_path.name}.part{s}") for s, _ in ranges}
     counter = Value("q", 0)
-
     try:
         with _make_progress() as progress:
             task_id = progress.add_task("Downloading", total=file_size)
             last_seen = 0
-
             with Pool(processes=num_connections) as pool:
                 pending = [
                     (
@@ -477,27 +285,21 @@ def _download_chunked(
                     )
                     for s, e in ranges
                 ]
-
                 while pending:
                     for item in list(pending):
                         ar, _ = item
                         if ar.ready():
                             ar.get()
                             pending.remove(item)
-
                     current = counter.value
                     if current > last_seen:
                         progress.update(task_id, advance=current - last_seen)
                         last_seen = current
                     if pending:
                         time.sleep(POLL_INTERVAL)
-
-                # Final flush after all workers finish.
                 current = counter.value
                 if current > last_seen:
                     progress.update(task_id, advance=current - last_seen)
-
-        # Concatenate the part files into the final destination.
         with out_path.open("wb") as out:
             for s, _ in sorted(part_paths):
                 with part_paths[s].open("rb") as pf:
@@ -511,34 +313,23 @@ def _download_chunked(
                 pass
         raise
 
-
-# ---------------------------------------------------------------------------
-# Public entry point
-# ---------------------------------------------------------------------------
-
 def download_url(
     url: str,
     connections: int,
     backend_name: str,
     out_dir: Path,
+    console: ConsoleType,
 ) -> Path:
-    """Download a single URL using the chosen backend."""
-    head, _ = BACKENDS[backend_name]()
-
+    backend = BACKENDS[backend_name]()
     filename = Path(urlparse(url).path).name or "downloaded_file"
     out_path = out_dir / filename
-
-    file_size = head(url)
+    file_size = backend.head(url)
     if file_size <= 0:
         raise RuntimeError(f"Refusing to download empty resource: {url}")
-
     ranges = _plan_ranges(file_size, connections)
     effective_connections = len(ranges)
-
     use_chunked = file_size > CHUNK_THRESHOLD
     mode = "chunked→disk" if use_chunked else "buffered"
-
-    console = Console()
     console.print(
         f"[bold]File:[/bold] {filename}  "
         f"[bold]Size:[/bold] {file_size / 1024 / 1024:.2f} MB  "
@@ -546,30 +337,18 @@ def download_url(
         f"[bold]Backend:[/bold] {backend_name}  "
         f"[bold]Mode:[/bold] {mode}"
     )
-
     if use_chunked:
-        _download_chunked(
-            url, ranges, backend_name, file_size, effective_connections, out_path
-        )
+        _download_chunked(url, ranges, backend_name, file_size, effective_connections, out_path)
     else:
-        results = _download_buffered(
-            url, ranges, backend_name, file_size, effective_connections
-        )
+        results = _download_buffered(url, ranges, backend_name, file_size, effective_connections)
         results.sort(key=lambda x: x[0])
         with out_path.open("wb") as f:
             for _, data in results:
                 f.write(data)
-
     console.print(f"[bold green]✅ Download complete:[/bold green] {out_path}")
     return out_path
 
-
-# ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
 def read_urls_from_file(path: Path) -> list[str]:
-    """Read URLs from ``path``, one per line; ``#`` starts a comment."""
     urls: list[str] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
@@ -578,81 +357,77 @@ def read_urls_from_file(path: Path) -> list[str]:
         urls.append(line)
     return urls
 
+app = typer.Typer(
+    name="wget2",
+    help="Multi-connection downloader with pluggable HTTP backends.",
+    add_completion=False,
+    rich_markup_mode="rich",
+)
 
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="wget2",
-        description="Multi-connection downloader with pluggable HTTP backends.",
-    )
-    p.add_argument("url", nargs="?", help="URL to download (omit if using -f).")
-    p.add_argument(
-        "-c",
+@app.command()
+def main(
+    url: str | None = typer.Argument(None, help="URL to download (omit if using -f)."),
+    connections: int = typer.Option(
+        8,
         "--connections",
-        type=int,
-        default=8,
+        "-c",
         metavar="N",
-        help="parallel connections per URL (default: 8).",
-    )
-    p.add_argument(
-        "-b",
+        help="Parallel connections per URL.",
+    ),
+    backend: str = typer.Option(
+        DEFAULT_BACKEND,
         "--backend",
-        choices=list(BACKENDS),
-        default=DEFAULT_BACKEND,
-        help=f"HTTP backend to use (default: {DEFAULT_BACKEND}).",
-    )
-    p.add_argument(
-        "-f",
+        "-b",
+        help=f"HTTP backend to use. Choices: {', '.join(BACKENDS)}",
+    ),
+    file: Path | None = typer.Option(
+        None,
         "--file",
-        type=Path,
+        "-f",
         metavar="FILE",
-        help="read URLs from FILE (one per line, '#' comments allowed).",
-    )
-    p.add_argument(
-        "-o",
+        help="Read URLs from FILE (one per line, '#' comments allowed).",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+    ),
+    output_dir: Path = typer.Option(
+        Path("."),
         "--output-dir",
-        type=Path,
-        default=Path("."),
-        help="directory to write downloads into (default: current dir).",
-    )
-    return p
-
-
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-
-    urls: list[str] = []
-    if args.file:
-        if not args.file.is_file():
-            print(f"error: URL file not found: {args.file}", file=sys.stderr)
-            return 2
-        urls.extend(read_urls_from_file(args.file))
-    if args.url:
-        urls.append(args.url)
-    if not urls:
-        print("error: provide a URL or use -f FILE", file=sys.stderr)
-        return 2
-
-    out_dir: Path = args.output_dir
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    # Validate backend availability early (missing optional dependency).
-    try:
-        BACKENDS[args.backend]()
-    except ImportError as exc:
-        print(
-            f"error: backend '{args.backend}' unavailable: {exc}",
-            file=sys.stderr,
+        "-o",
+        help="Directory to write downloads into.",
+        file_okay=False,
+        dir_okay=True,
+        writable=True,
+    ),
+) -> None:
+    console = Console()
+    if backend not in BACKENDS:
+        console.print(
+            f"[bold red]error:[/bold red] unknown backend '{backend}'. "
+            f"Available: {', '.join(BACKENDS)}"
         )
-        return 1
-
-    for url in urls:
+        raise typer.Exit(code=1)
+    urls: list[str] = []
+    if file is not None:
+        urls.extend(read_urls_from_file(file))
+    if url:
+        urls.append(url)
+    if not urls:
+        console.print("[bold red]error:[/bold red] provide a URL or use -f FILE")
+        raise typer.Exit(code=2)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        BACKENDS[backend]()
+    except ImportError as exc:
+        console.print(f"[bold red]error:[/bold red] backend '{backend}' unavailable: {exc}")
+        raise typer.Exit(code=1)
+    for u in urls:
         try:
-            download_url(url, args.connections, args.backend, out_dir)
+            download_url(u, connections, backend, output_dir, console)
         except Exception as exc:
-            print(f"error downloading {url}: {exc}", file=sys.stderr)
-
-    return 0
-
+            console.print(f"[bold red]error downloading {u}:[/bold red] {exc}")
+            raise typer.Exit(code=1)
 
 if __name__ == "__main__":
-    sys.exit(main())
+    app()

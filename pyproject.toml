@@ -1,21 +1,15 @@
 [build-system]
 requires = ["setuptools"]
-build-backend = "setuptools.buildmeta"
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "wget2"
 version = "1.4.7"
 readme = "README.md"
 authors = [
-  {name = "isaac onagh", email = "mkalafsaz@gmail.com"}
+  {name = "Isaac Onagh", email = "yesnacoc@gmail.com"}
 ]
-classifiers = [
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Typing :: Typed",
-]
-license = "MIT"
 requires-python = ">= 3.12"
 
 [project.scripts]
-wget2 = "wget2.cli:app"
+wget2 = "wget2.cli:main"
