@@ -180,9 +180,7 @@ def _make_handler(srv: TestServer):  # noqa: C901
                 expected = srv.auth.get(inner)
                 header = self.headers.get("Authorization") or ""
                 if expected is None or not header.startswith("Basic "):
-                    self._respond(
-                        401, {"WWW-Authenticate": 'Basic realm="wget2"'}, b"auth required", head=head
-                    )
+                    self._respond(401, {"WWW-Authenticate": 'Basic realm="wget2"'}, b"auth required", head=head)
                     return
                 try:
                     decoded = base64.b64decode(header[6:]).decode()

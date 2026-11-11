@@ -44,18 +44,14 @@ from .util import (
     validate_url,
 )
 
-EPILOG = """\n\nExit codes:\n""" + "\n".join(
-    f"  {code:<4} {text}" for code, text in sorted(EXIT_CODE_DOC.items())
-)
+EPILOG = """\n\nExit codes:\n""" + "\n".join(f"  {code:<4} {text}" for code, text in sorted(EXIT_CODE_DOC.items()))
 
 
 # --------------------------------------------------------------------------- #
 # input collection
 # --------------------------------------------------------------------------- #
 def read_urls_from_stdin() -> list[str]:
-    return [
-        line.strip() for line in sys.stdin.read().splitlines() if line.strip() and not line.startswith("#")
-    ]
+    return [line.strip() for line in sys.stdin.read().splitlines() if line.strip() and not line.startswith("#")]
 
 
 def read_urls_from_file(path: Path, input_format: str = "auto") -> list[str]:
@@ -267,9 +263,7 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
         ] = _d("backend", "pycurl"),
         connections: Annotated[
             int,
-            typer.Option(
-                "--connections", "-c", envvar="WGET2_CONNECTIONS", help="Parallel connections per URL."
-            ),
+            typer.Option("--connections", "-c", envvar="WGET2_CONNECTIONS", help="Parallel connections per URL."),
         ] = int(_d("connections", 8)),
         max_per_host: Annotated[
             int,
@@ -297,9 +291,9 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
         retry: Annotated[
             int, typer.Option("--retry", envvar="WGET2_RETRY", help="Retries per request (0 disables).")
         ] = int(_d("retry", 5)),
-        retry_delay: Annotated[
-            float, typer.Option("--retry-delay", help="Initial backoff delay in seconds.")
-        ] = float(_d("retry_delay", 1.0)),
+        retry_delay: Annotated[float, typer.Option("--retry-delay", help="Initial backoff delay in seconds.")] = float(
+            _d("retry_delay", 1.0)
+        ),
         retry_backoff: Annotated[
             float, typer.Option("--retry-backoff", help="Exponential backoff multiplier.")
         ] = float(_d("retry_backoff", 2.0)),
@@ -318,12 +312,12 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
         connect_timeout: Annotated[
             float, typer.Option("--connect-timeout", help="Connection timeout in seconds.")
         ] = float(_d("connect_timeout", 10.0)),
-        max_redirects: Annotated[
-            int, typer.Option("--max-redirects", help="Maximum redirects to follow.")
-        ] = int(_d("max_redirects", 10)),
-        continue_: Annotated[
-            bool, typer.Option("--continue", "-C", help="Resume from .part files when valid.")
-        ] = bool(_d("continue_", False)),
+        max_redirects: Annotated[int, typer.Option("--max-redirects", help="Maximum redirects to follow.")] = int(
+            _d("max_redirects", 10)
+        ),
+        continue_: Annotated[bool, typer.Option("--continue", "-C", help="Resume from .part files when valid.")] = bool(
+            _d("continue_", False)
+        ),
         allow_unvalidated_resume: Annotated[
             bool, typer.Option("--allow-unvalidated-resume", help="Resume even without ETag/Last-Modified.")
         ] = bool(_d("allow_unvalidated_resume", False)),
@@ -343,14 +337,10 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
         ] = None,
         checksum_file: Annotated[
             Optional[Path],
-            typer.Option(
-                "--checksum-file", exists=True, dir_okay=False, readable=True, help="sha256sum-style file."
-            ),
+            typer.Option("--checksum-file", exists=True, dir_okay=False, readable=True, help="sha256sum-style file."),
         ] = None,
         # ---------------- auth / headers ---------------- #
-        user: Annotated[Optional[str], typer.Option("--user", help="HTTP basic auth user.")] = _d(
-            "user", None
-        ),
+        user: Annotated[Optional[str], typer.Option("--user", help="HTTP basic auth user.")] = _d("user", None),
         password: Annotated[Optional[str], typer.Option("--password", help="HTTP basic auth password.")] = _d(
             "password", None
         ),
@@ -368,48 +358,46 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
             Optional[list[str]],
             typer.Option("--header", "-H", help="Extra request header 'Name: value' (repeatable)."),
         ] = cfg.get("header"),
-        user_agent: Annotated[
-            Optional[str], typer.Option("--user-agent", "-U", help="User-Agent header.")
-        ] = _d("user_agent", None),
-        referer: Annotated[Optional[str], typer.Option("--referer", help="Referer header.")] = _d(
-            "referer", None
+        user_agent: Annotated[Optional[str], typer.Option("--user-agent", "-U", help="User-Agent header.")] = _d(
+            "user_agent", None
         ),
-        cookie: Annotated[
-            Optional[str], typer.Option("--cookie", help="Cookie header value ('a=1; b=2').")
-        ] = _d("cookie", None),
+        referer: Annotated[Optional[str], typer.Option("--referer", help="Referer header.")] = _d("referer", None),
+        cookie: Annotated[Optional[str], typer.Option("--cookie", help="Cookie header value ('a=1; b=2').")] = _d(
+            "cookie", None
+        ),
         cookie_jar: Annotated[
             Optional[Path],
             typer.Option("--cookie-jar", dir_okay=False, help="Load/save cookies (Netscape format)."),
         ] = _d("cookie_jar", None),
         method: Annotated[str, typer.Option("--method", "-X", help="HTTP method.")] = _d("method", "GET"),
-        data: Annotated[
-            Optional[str], typer.Option("--data", "-d", help="Request body (@file supported).")
-        ] = _d("data", None),
-        data_binary: Annotated[
-            Optional[str], typer.Option("--data-binary", help="Request body sent verbatim.")
-        ] = _d("data_binary", None),
+        data: Annotated[Optional[str], typer.Option("--data", "-d", help="Request body (@file supported).")] = _d(
+            "data", None
+        ),
+        data_binary: Annotated[Optional[str], typer.Option("--data-binary", help="Request body sent verbatim.")] = _d(
+            "data_binary", None
+        ),
         # ---------------- transport ---------------- #
-        proxy: Annotated[
-            Optional[str], typer.Option("--proxy", envvar="WGET2_PROXY", help="Proxy URL.")
-        ] = _d("proxy", None),
-        no_proxy: Annotated[
-            bool, typer.Option("--no-proxy", help="Ignore HTTP(S)_PROXY and --proxy.")
-        ] = bool(_d("no_proxy", False)),
+        proxy: Annotated[Optional[str], typer.Option("--proxy", envvar="WGET2_PROXY", help="Proxy URL.")] = _d(
+            "proxy", None
+        ),
+        no_proxy: Annotated[bool, typer.Option("--no-proxy", help="Ignore HTTP(S)_PROXY and --proxy.")] = bool(
+            _d("no_proxy", False)
+        ),
         insecure: Annotated[bool, typer.Option("--insecure", "-k", help="Skip TLS verification.")] = bool(
             _d("insecure", False)
         ),
-        ca_cert: Annotated[
-            Optional[Path], typer.Option("--ca-cert", dir_okay=False, help="CA bundle path.")
-        ] = _d("ca_cert", None),
+        ca_cert: Annotated[Optional[Path], typer.Option("--ca-cert", dir_okay=False, help="CA bundle path.")] = _d(
+            "ca_cert", None
+        ),
         client_cert: Annotated[
             Optional[Path], typer.Option("--client-cert", dir_okay=False, help="Client certificate (PEM).")
         ] = _d("client_cert", None),
         client_key: Annotated[
             Optional[Path], typer.Option("--client-key", dir_okay=False, help="Client private key (PEM).")
         ] = _d("client_key", None),
-        http2: Annotated[
-            bool, typer.Option("--http2/--no-http2", help="Enable HTTP/2 when supported.")
-        ] = bool(_d("http2", True)),
+        http2: Annotated[bool, typer.Option("--http2/--no-http2", help="Enable HTTP/2 when supported.")] = bool(
+            _d("http2", True)
+        ),
         # ---------------- output ---------------- #
         output: Annotated[
             Optional[Path],
@@ -419,12 +407,12 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
             Optional[str],
             typer.Option("--output-template", help="Per-URL path template, e.g. '{host}/{filename}'."),
         ] = _d("output_template", None),
-        output_dir: Annotated[
-            Path, typer.Option("--output-dir", "-P", "-o", help="Directory for downloads.")
-        ] = Path(_d("output_dir", ".")),
-        no_clobber: Annotated[
-            bool, typer.Option("--no-clobber", "-n", help="Never overwrite existing files.")
-        ] = bool(_d("no_clobber", False)),
+        output_dir: Annotated[Path, typer.Option("--output-dir", "-P", "-o", help="Directory for downloads.")] = Path(
+            _d("output_dir", ".")
+        ),
+        no_clobber: Annotated[bool, typer.Option("--no-clobber", "-n", help="Never overwrite existing files.")] = bool(
+            _d("no_clobber", False)
+        ),
         overwrite: Annotated[
             bool, typer.Option("--overwrite/--no-overwrite", help="Overwrite existing files (default).")
         ] = bool(_d("overwrite", True)),
@@ -437,22 +425,18 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
                 "--content-disposition/--no-content-disposition", help="Honour Content-Disposition filenames."
             ),
         ] = bool(_d("content_disposition", True)),
-        unique: Annotated[
-            bool, typer.Option("--unique", help="Never clobber: add .1, .2 suffixes instead.")
-        ] = bool(_d("unique", False)),
+        unique: Annotated[bool, typer.Option("--unique", help="Never clobber: add .1, .2 suffixes instead.")] = bool(
+            _d("unique", False)
+        ),
         manifest: Annotated[
             bool, typer.Option("--manifest/--no-manifest", help="Write a <file>.wget2.json sidecar.")
         ] = bool(_d("manifest", False)),
         # ---------------- logging / UX ---------------- #
-        quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Only report errors.")] = bool(
-            _d("quiet", False)
-        ),
+        quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Only report errors.")] = bool(_d("quiet", False)),
         verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Debug-level logging.")] = bool(
             _d("verbose", False)
         ),
-        progress: Annotated[str, typer.Option("--progress", help="rich | plain | none.")] = _d(
-            "progress", "rich"
-        ),
+        progress: Annotated[str, typer.Option("--progress", help="rich | plain | none.")] = _d("progress", "rich"),
         no_progress: Annotated[bool, typer.Option("--no-progress", help="Same as --progress=none.")] = bool(
             _d("no_progress", False)
         ),
@@ -462,9 +446,9 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
         log_file: Annotated[
             Optional[Path], typer.Option("--log-file", dir_okay=False, help="Write logs to a file.")
         ] = _d("log_file", None),
-        log_level: Annotated[
-            str, typer.Option("--log-level", help="critical|error|warning|info|debug.")
-        ] = _d("log_level", "info"),
+        log_level: Annotated[str, typer.Option("--log-level", help="critical|error|warning|info|debug.")] = _d(
+            "log_level", "info"
+        ),
         log_json: Annotated[bool, typer.Option("--log-json", help="Structured JSON logs.")] = bool(
             _d("log_json", False)
         ),
@@ -488,28 +472,24 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
                 help="Fallback URL(s) tried in order when a download fails (repeatable/comma separated).",
             ),
         ] = cfg.get("mirror_list"),
-        jobs: Annotated[int, typer.Option("--jobs", "-j", help="URLs to download in parallel.")] = int(
-            _d("jobs", 1)
-        ),
+        jobs: Annotated[int, typer.Option("--jobs", "-j", help="URLs to download in parallel.")] = int(_d("jobs", 1)),
         max_active: Annotated[
             Optional[int], typer.Option("--max-active", help="Hard cap on concurrent file downloads.")
         ] = _d("max_active", None),
         # ---------------- crawling ---------------- #
-        recursive: Annotated[
-            bool, typer.Option("--recursive", "-r", help="Follow links (same host).")
-        ] = bool(_d("recursive", False)),
+        recursive: Annotated[bool, typer.Option("--recursive", "-r", help="Follow links (same host).")] = bool(
+            _d("recursive", False)
+        ),
         mirror: Annotated[
             bool, typer.Option("--mirror", "-m", help="Recursive + timestamping + keep structure.")
         ] = bool(_d("mirror", False)),
-        level: Annotated[int, typer.Option("--level", "-l", help="Maximum recursion depth.")] = int(
-            _d("level", 5)
-        ),
+        level: Annotated[int, typer.Option("--level", "-l", help="Maximum recursion depth.")] = int(_d("level", 5)),
         spider: Annotated[bool, typer.Option("--spider", help="Check URLs only; download nothing.")] = bool(
             _d("spider", False)
         ),
-        dry_run: Annotated[
-            bool, typer.Option("--dry-run", help="Probe (HEAD) and show what would happen.")
-        ] = bool(_d("dry_run", False)),
+        dry_run: Annotated[bool, typer.Option("--dry-run", help="Probe (HEAD) and show what would happen.")] = bool(
+            _d("dry_run", False)
+        ),
         accept: Annotated[
             Optional[list[str]], typer.Option("--accept", "-A", help="Accept only these name patterns.")
         ] = cfg.get("accept"),
@@ -538,9 +518,7 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
         # ---------------- ops ---------------- #
         lock_file: Annotated[
             Optional[Path],
-            typer.Option(
-                "--lock-file", dir_okay=False, help="Lock file path (default: <output-dir>/.wget2.lock)."
-            ),
+            typer.Option("--lock-file", dir_okay=False, help="Lock file path (default: <output-dir>/.wget2.lock)."),
         ] = _d("lock_file", None),
         no_lock: Annotated[bool, typer.Option("--no-lock", help="Disable the single-instance guard.")] = bool(
             _d("no_lock", False)
@@ -549,14 +527,10 @@ def build_app(defaults: dict[str, Any]) -> typer.Typer:
             bool, typer.Option("--allow-unsafe-schemes", help="Permit file:// and ftp:// URLs.")
         ] = bool(_d("allow_unsafe_schemes", False)),
         check: Annotated[bool, typer.Option("--check", help="Run environment self-checks and exit.")] = False,
-        exit_codes: Annotated[
-            bool, typer.Option("--exit-codes", help="Print the exit-code table and exit.")
-        ] = False,
+        exit_codes: Annotated[bool, typer.Option("--exit-codes", help="Print the exit-code table and exit.")] = False,
         version: Annotated[
             Optional[bool],
-            typer.Option(
-                "--version", "-V", is_eager=True, callback=_version_callback, help="Show version and exit."
-            ),
+            typer.Option("--version", "-V", is_eager=True, callback=_version_callback, help="Show version and exit."),
         ] = None,
     ) -> None:
         exit_code = run(locals())
@@ -704,9 +678,7 @@ def run(options: dict[str, Any]) -> int:
         )
 
         checksum_specs = parse_checksums(options.get("checksum") or [])
-        checksum_table = (
-            load_checksum_file(Path(options["checksum_file"])) if options.get("checksum_file") else {}
-        )
+        checksum_table = load_checksum_file(Path(options["checksum_file"])) if options.get("checksum_file") else {}
 
         jobs = max(1, int(options.get("jobs") or 1))
         max_active = options.get("max_active")
@@ -773,9 +745,7 @@ def run(options: dict[str, Any]) -> int:
         return EXIT_USAGE
 
     lock_path = Path(options["lock_file"]) if options.get("lock_file") else output_dir / ".wget2.lock"
-    lock = FileLock(
-        lock_path, enabled=not options.get("no_lock") and not settings.dry_run and not settings.spider
-    )
+    lock = FileLock(lock_path, enabled=not options.get("no_lock") and not settings.dry_run and not settings.spider)
     try:
         lock.acquire()
     except Wget2Error as exc:

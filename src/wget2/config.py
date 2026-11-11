@@ -129,9 +129,7 @@ KEY_ALIASES = {
 
 #: keys whose value is a size ("10M") or a number of bytes
 SIZE_KEYS = frozenset({"max_filesize", "rate_limit", "rate_limit_per_connection", "buffer_threshold"})
-LIST_KEYS = frozenset(
-    {"header", "checksum", "accept", "reject", "include", "exclude", "backend_args", "mirror_list"}
-)
+LIST_KEYS = frozenset({"header", "checksum", "accept", "reject", "include", "exclude", "backend_args", "mirror_list"})
 BOOL_KEYS = frozenset(
     {
         "no_clobber",

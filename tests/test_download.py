@@ -506,9 +506,7 @@ class TestRecursive:
         assert "skip.png" not in downloaded
 
     def test_spider_recursive(self, run_cli, server, outdir) -> None:
-        result = invoke(
-            run_cli, server.url("site/index.html"), "-P", str(outdir), "-r", "-l", "1", "--spider"
-        )
+        result = invoke(run_cli, server.url("site/index.html"), "-P", str(outdir), "-r", "-l", "1", "--spider")
         assert result.exit_code == 0, result.output
         assert list(outdir.iterdir()) == []
 

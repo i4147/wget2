@@ -112,9 +112,7 @@ class PartState:
         try:
             payload = json.loads(state_path.read_text(encoding="utf-8"))
         except (OSError, ValueError) as exc:
-            get_logger("state").warning(
-                "discarding unreadable part state", path=str(state_path), error=str(exc)
-            )
+            get_logger("state").warning("discarding unreadable part state", path=str(state_path), error=str(exc))
             safe_unlink(state_path)
             return None
         if payload.get("version") != STATE_VERSION:

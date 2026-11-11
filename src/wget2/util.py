@@ -227,9 +227,7 @@ def content_disposition_filename(header: str | None) -> str | None:
 # redaction
 # --------------------------------------------------------------------------- #
 _CREDENTIAL_URL_RE = re.compile(r"(?i)\b([a-z][a-z0-9+.\-]*://)([^/\s:@]+)(?::([^/\s@]*))?@")
-_AUTH_HEADER_RE = re.compile(
-    r"(?i)\b(authorization|proxy-authorization)\b(\s*[:=]\s*)([^\s,;]+(?:\s+[^\s,;]+)?)"
-)
+_AUTH_HEADER_RE = re.compile(r"(?i)\b(authorization|proxy-authorization)\b(\s*[:=]\s*)([^\s,;]+(?:\s+[^\s,;]+)?)")
 _BEARER_RE = re.compile(r"(?i)\b(bearer|basic|token)(\s+)([A-Za-z0-9\-._~+/=]{4,})")
 _SECRET_KV_RE = re.compile(
     r"(?i)\b(password|passwd|pwd|token|secret|api[_-]?key|access[_-]?key)(\s*[=:]\s*)(\"?[^\"\s,&}]+)"

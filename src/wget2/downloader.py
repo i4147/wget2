@@ -576,9 +576,7 @@ class FileDownloader:
         )
         result.connections = (min(connections, len(plan)) if use_ranges else 1) or 1
 
-        handle = self.ctx.progress.add_file(
-            final_path.name, size, already_done=state.done_bytes() if resumed else 0
-        )
+        handle = self.ctx.progress.add_file(final_path.name, size, already_done=state.done_bytes() if resumed else 0)
         status = "failed"
         failed = False
         fd = -1
@@ -602,9 +600,7 @@ class FileDownloader:
                     self.log.info("partial file already complete", path=str(part_path))
                 elif use_ranges and len(missing) > 1:
                     try:
-                        self._download_segments(
-                            backend, url, state, missing, size, fd, handle, buffered, connections
-                        )
+                        self._download_segments(backend, url, state, missing, size, fd, handle, buffered, connections)
                     except RangeNotSupportedError as exc:
                         self.log.warning(
                             "range requests unsupported, falling back to a single stream",
@@ -702,8 +698,7 @@ class FileDownloader:
                     queue.task_done()
 
         threads = [
-            threading.Thread(target=worker, name=f"wget2-range-{index}", daemon=True)
-            for index in range(workers)
+            threading.Thread(target=worker, name=f"wget2-range-{index}", daemon=True) for index in range(workers)
         ]
         for thread in threads:
             thread.start()
@@ -758,8 +753,7 @@ class FileDownloader:
                 expected = end - offset
                 if sink.written < expected:
                     raise ContentLengthError(
-                        f"short read for bytes {offset}-{end - 1}: "
-                        f"expected {expected} bytes, got {sink.written}",
+                        f"short read for bytes {offset}-{end - 1}: " f"expected {expected} bytes, got {sink.written}",
                         url=url,
                     )
                 if buffered:
@@ -881,9 +875,7 @@ class FileDownloader:
             raise IntegrityError("206 response without a valid Content-Range header", url=info.url)
         range_start, _range_end, total = parsed
         if range_start != start:
-            raise IntegrityError(
-                f"server returned range starting at {range_start}, expected {start}", url=info.url
-            )
+            raise IntegrityError(f"server returned range starting at {range_start}, expected {start}", url=info.url)
         if total is not None and size is not None and total != size:
             raise IntegrityError(f"resource size changed during download ({size} -> {total})", url=info.url)
 

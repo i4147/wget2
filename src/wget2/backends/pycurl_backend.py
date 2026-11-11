@@ -182,9 +182,7 @@ class PycurlBackend(DownloadBackend):
         detail = f"{message} ({redact_url(url)})"
         if code == 28:
             return RequestTimeout(f"timeout: {detail}", url=url, retryable=True)
-        return TransportError(
-            f"curl error {code}: {detail}", url=url, retryable=code in _RETRYABLE_CURL_CODES
-        )
+        return TransportError(f"curl error {code}: {detail}", url=url, retryable=code in _RETRYABLE_CURL_CODES)
 
 
 def create(config: RequestConfig, extra: dict[str, Any] | None = None) -> PycurlBackend:

@@ -25,9 +25,7 @@ from .util import (
 
 MANIFEST_SUFFIX = ".wget2.json"
 
-TEMPLATE_FIELDS = frozenset(
-    {"url", "host", "path", "name", "filename", "stem", "ext", "index", "size", "date"}
-)
+TEMPLATE_FIELDS = frozenset({"url", "host", "path", "name", "filename", "stem", "ext", "index", "size", "date"})
 
 
 @dataclass(frozen=True)
@@ -44,9 +42,7 @@ class OutputOptions:
 
     def validate(self, url_count: int) -> None:
         if self.output is not None and url_count > 1 and not self.template:
-            raise UsageError(
-                "--output/-O can only be used with a single URL; use --output-template for batches"
-            )
+            raise UsageError("--output/-O can only be used with a single URL; use --output-template for batches")
         if self.no_clobber and self.overwrite and self.timestamping is False:
             # both flags explicitly set is contradictory; --no-clobber wins
             get_logger("output").debug("both --no-clobber and --overwrite set; --no-clobber wins")
@@ -84,8 +80,7 @@ def validate_template(template: str) -> None:
         base = re.split(r"[.\[]", field_name, maxsplit=1)[0]
         if base and base not in TEMPLATE_FIELDS:
             raise UsageError(
-                f"unknown field '{base}' in --output-template "
-                f"(available: {', '.join(sorted(TEMPLATE_FIELDS))})"
+                f"unknown field '{base}' in --output-template " f"(available: {', '.join(sorted(TEMPLATE_FIELDS))})"
             )
 
 

@@ -11,9 +11,7 @@ from .errors import ChecksumError, ConfigError, UsageError
 from .log import get_logger
 from .util import human_size
 
-SUPPORTED_ALGORITHMS = frozenset(
-    {"md5", "sha1", "sha224", "sha256", "sha384", "sha512", "blake2b", "sha3_256"}
-)
+SUPPORTED_ALGORITHMS = frozenset({"md5", "sha1", "sha224", "sha256", "sha384", "sha512", "blake2b", "sha3_256"})
 DEFAULT_ALGORITHM = "sha256"
 _HEX_RE = re.compile(r"^[0-9a-fA-F]+$")
 _CHUNK = 1024 * 1024
@@ -88,9 +86,7 @@ def load_checksum_file(path: Path) -> dict[str, list[ChecksumSpec]]:
             spec = parse_checksum(f"{_guess_algorithm(digest)}:{digest}")
         except UsageError:
             continue
-        table.setdefault(Path(name).name, []).append(
-            ChecksumSpec(spec.algorithm, spec.expected, source=str(path))
-        )
+        table.setdefault(Path(name).name, []).append(ChecksumSpec(spec.algorithm, spec.expected, source=str(path)))
     get_logger("checksum").debug("checksum file loaded", path=str(path), entries=len(table))
     return table
 
@@ -146,7 +142,5 @@ def verify_file(path: Path, specs: list[ChecksumSpec]) -> dict[str, str]:
                 f"expected {spec.expected}, got {actual}",
                 details={"algorithm": spec.algorithm, "expected": spec.expected, "actual": actual},
             )
-        get_logger("checksum").info(
-            "checksum verified", filename=path.name, algorithm=spec.algorithm, digest=actual
-        )
+        get_logger("checksum").info("checksum verified", filename=path.name, algorithm=spec.algorithm, digest=actual)
     return digests

@@ -172,9 +172,7 @@ class RichReporter(ProgressReporter):
     def start(self, *, total_files: int, total_bytes: int | None = None) -> None:
         super().start(total_files=total_files, total_bytes=total_bytes)
         if total_files > 1:
-            self._overall = self._progress.add_task(
-                f"[bold]total ({total_files} files)", total=total_bytes or None
-            )
+            self._overall = self._progress.add_task(f"[bold]total ({total_files} files)", total=total_bytes or None)
 
     def add_file(self, description: str, total: int | None, *, already_done: int = 0) -> TaskHandle:
         handle = super().add_file(description, total)

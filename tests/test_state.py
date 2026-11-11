@@ -91,9 +91,7 @@ class TestPartState:
 
     def test_validators(self, tmp_path: Path) -> None:
         state = self._make(tmp_path)
-        ok, reason = state.matches_remote(
-            size=100, etag='"abc"', last_modified="Wed, 21 Oct 2015 07:28:00 GMT"
-        )
+        ok, reason = state.matches_remote(size=100, etag='"abc"', last_modified="Wed, 21 Oct 2015 07:28:00 GMT")
         assert ok, reason
 
         ok, reason = state.matches_remote(size=200, etag='"abc"', last_modified=None)
@@ -102,9 +100,7 @@ class TestPartState:
         ok, reason = state.matches_remote(size=100, etag='"other"', last_modified=None)
         assert not ok and "ETag" in reason
 
-        ok, reason = state.matches_remote(
-            size=100, etag='"abc"', last_modified="Thu, 22 Oct 2015 07:28:00 GMT"
-        )
+        ok, reason = state.matches_remote(size=100, etag='"abc"', last_modified="Thu, 22 Oct 2015 07:28:00 GMT")
         assert not ok and "Last-Modified" in reason
 
     def test_unvalidated(self, tmp_path: Path) -> None:

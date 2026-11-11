@@ -157,9 +157,7 @@ class BackendRegistry:
     ) -> DownloadBackend:
         backend_cls = self.get(name)
         if not backend_cls.available():
-            raise BackendUnavailableError(
-                f"backend '{name}' is unavailable: {backend_cls.availability_reason()}"
-            )
+            raise BackendUnavailableError(f"backend '{name}' is unavailable: {backend_cls.availability_reason()}")
         return backend_cls(config, dict(extra or {}))
 
     def describe(self) -> list[BackendInfo]:

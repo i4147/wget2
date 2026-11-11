@@ -63,12 +63,8 @@ ALLOWED_SCHEMES = frozenset({"http", "https"})
 OPT_IN_SCHEMES = frozenset({"file", "ftp", "ftps"})
 DEFAULT_RETRY_STATUS = frozenset({408, 425, 429, 500, 502, 503, 504})
 RETRYABLE_CURL_CODES = frozenset({6, 7, 16, 18, 28, 35, 52, 55, 56, 92})
-SUPPORTED_ALGORITHMS = frozenset(
-    {"md5", "sha1", "sha224", "sha256", "sha384", "sha512", "blake2b", "sha3_256"}
-)
-TEMPLATE_FIELDS = frozenset(
-    {"url", "host", "path", "name", "filename", "stem", "ext", "index", "size", "date"}
-)
+SUPPORTED_ALGORITHMS = frozenset({"md5", "sha1", "sha224", "sha256", "sha384", "sha512", "blake2b", "sha3_256"})
+TEMPLATE_FIELDS = frozenset({"url", "host", "path", "name", "filename", "stem", "ext", "index", "size", "date"})
 
 Interval = tuple[int, int]
 Sink = Callable[[bytes], None]
@@ -81,13 +77,9 @@ _UNSAFE_CHARS_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 _CONTENT_RANGE_RE = re.compile(r"bytes\s+(\d+)-(\d+)/(\d+|\*)", re.IGNORECASE)
 _HEX_RE = re.compile(r"^[0-9a-fA-F]+$")
 _CREDENTIAL_URL_RE = re.compile(r"(?i)\b([a-z][a-z0-9+.\-]*://)([^/\s:@]+)(?::([^/\s@]*))?@")
-_AUTH_HEADER_RE = re.compile(
-    r"(?i)\b(authorization|proxy-authorization)\b(\s*[:=]\s*)([^\s,;]+(?:\s+[^\s,;]+)?)"
-)
+_AUTH_HEADER_RE = re.compile(r"(?i)\b(authorization|proxy-authorization)\b(\s*[:=]\s*)([^\s,;]+(?:\s+[^\s,;]+)?)")
 _BEARER_RE = re.compile(r"(?i)\b(bearer|basic|token)(\s+)([A-Za-z0-9\-._~+/=]{4,})")
-_SECRET_KV_RE = re.compile(
-    r"(?i)\b(password|passwd|secret|token|api[_-]?key|client[_-]?secret)(\s*[=:]\s*)(\S+)"
-)
+_SECRET_KV_RE = re.compile(r"(?i)\b(password|passwd|secret|token|api[_-]?key|client[_-]?secret)(\s*[=:]\s*)(\S+)")
 _LINK_RE = re.compile(r"""(?:href|src)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))""", re.IGNORECASE)
 _WINDOWS_RESERVED = frozenset(
     {"con", "prn", "aux", "nul"} | {f"com{i}" for i in range(1, 10)} | {f"lpt{i}" for i in range(1, 10)}
@@ -270,9 +262,7 @@ class Logger:
             }
             payload.update(
                 {
-                    key: value
-                    if isinstance(value, (int, float, bool)) or value is None
-                    else redact_text(str(value))
+                    key: value if isinstance(value, (int, float, bool)) or value is None else redact_text(str(value))
                     for key, value in fields.items()
                 }
             )
@@ -405,9 +395,7 @@ def sanitize_filename(name: str, *, fallback: str = "download", max_length: int 
     if not name or name in {".", ".."}:
         return fallback
     stem, dot, suffix = name.rpartition(".")
-    if (dot and stem and stem.lower() in _WINDOWS_RESERVED) or (
-        not dot and name.lower() in _WINDOWS_RESERVED
-    ):
+    if (dot and stem and stem.lower() in _WINDOWS_RESERVED) or (not dot and name.lower() in _WINDOWS_RESERVED):
         name = f"_{name}"
     if len(name) > max_length:
         stem, dot, suffix = name.rpartition(".")
@@ -1006,9 +994,7 @@ def verify_file(path: Path, specs: Sequence[ChecksumSpec]) -> dict[str, str]:
         actual = digest_file(path, spec.algorithm)
         results[spec.algorithm] = actual
         if actual != spec.expected:
-            raise ChecksumError(
-                f"{spec.algorithm} mismatch for {path.name}: expected {spec.expected}, got {actual}"
-            )
+            raise ChecksumError(f"{spec.algorithm} mismatch for {path.name}: expected {spec.expected}, got {actual}")
     return results
 
 
@@ -1681,8 +1667,7 @@ def validate_template(template: str) -> None:
         base = re.split(r"[.\[{]", field_name, maxsplit=1)[0]
         if base and base not in TEMPLATE_FIELDS:
             raise UsageError(
-                f"unknown field '{base}' in --output-template "
-                f"(available: {', '.join(sorted(TEMPLATE_FIELDS))})"
+                f"unknown field '{base}' in --output-template " f"(available: {', '.join(sorted(TEMPLATE_FIELDS))})"
             )
 
 
@@ -1994,9 +1979,7 @@ class Downloader:
             result.error_kind = "internal"
             result.exit_code = EXIT_INTERNAL
 
-    def _execute(
-        self, url: str, index: int, probe: ProbeResult, result: Result, started: float, name_url: str
-    ) -> None:
+    def _execute(self, url: str, index: int, probe: ProbeResult, result: Result, started: float, name_url: str) -> None:
         settings = self.settings
         size = probe.size
         if settings.max_filesize and size is not None and size > settings.max_filesize:
@@ -2129,9 +2112,7 @@ class Downloader:
                     self.log.info("partial file already complete", path=str(part_path))
                 elif use_ranges and len(missing) > 1:
                     try:
-                        self._download_segments(
-                            client, url, state, missing, size, fd, handle, buffered, connections
-                        )
+                        self._download_segments(client, url, state, missing, size, fd, handle, buffered, connections)
                     except RangeNotSupportedError as exc:
                         self.log.warning(
                             "range requests unsupported, falling back to a single stream",
@@ -2244,8 +2225,7 @@ class Downloader:
                     queue.task_done()
 
         threads = [
-            threading.Thread(target=worker, name=f"wget2-range-{index}", daemon=True)
-            for index in range(workers)
+            threading.Thread(target=worker, name=f"wget2-range-{index}", daemon=True) for index in range(workers)
         ]
         for thread in threads:
             thread.start()
@@ -2306,8 +2286,7 @@ class Downloader:
                 expected = end - offset
                 if sink.written < expected:
                     raise IntegrityError(
-                        f"short read for bytes {offset}-{end - 1}: "
-                        f"expected {expected} bytes, got {sink.written}",
+                        f"short read for bytes {offset}-{end - 1}: " f"expected {expected} bytes, got {sink.written}",
                         url=redact_url(url),
                     )
                 if buffered:
@@ -2424,17 +2403,13 @@ class Downloader:
     def _check_ranged_response(self, info: Response, start: int, end: int, size: int | None) -> None:
         if info.status == 200:
             if start > 0 or (size is not None and end < size):
-                raise RangeNotSupportedError(
-                    "server ignored the Range header (answered 200)", url=redact_url(info.url)
-                )
+                raise RangeNotSupportedError("server ignored the Range header (answered 200)", url=redact_url(info.url))
             return
         if info.status != 206:
             return
         parsed = parse_content_range(info.header("content-range"))
         if not parsed:
-            raise IntegrityError(
-                "206 response without a valid Content-Range header", url=redact_url(info.url)
-            )
+            raise IntegrityError("206 response without a valid Content-Range header", url=redact_url(info.url))
         range_start, _range_end, total = parsed
         if range_start != start:
             raise IntegrityError(
@@ -2605,8 +2580,7 @@ class Runner:
                         queue.task_done()
 
             pool = [
-                threading.Thread(target=worker, name=f"wget2-file-{number}", daemon=True)
-                for number in range(workers)
+                threading.Thread(target=worker, name=f"wget2-file-{number}", daemon=True) for number in range(workers)
             ]
             for thread in pool:
                 thread.start()
@@ -2721,9 +2695,7 @@ def _read_input(sources: Sequence[str], input_format: str, base_url: str | None)
                 payload = json.loads(text)
             except ValueError as exc:
                 raise ConfigError(f"invalid JSON input: {exc}") from exc
-            items: Any = (
-                payload.get("urls") or payload.get("files") or [] if isinstance(payload, dict) else payload
-            )
+            items: Any = payload.get("urls") or payload.get("files") or [] if isinstance(payload, dict) else payload
             for item in items or ():
                 if isinstance(item, str):
                     urls.append(item)
@@ -2735,12 +2707,8 @@ def _read_input(sources: Sequence[str], input_format: str, base_url: str | None)
                             break
         elif fmt == "csv":
             reader = csv.DictReader(io.StringIO(text))
-            if reader.fieldnames and any(
-                name.strip().lower() in {"url", "href", "link"} for name in reader.fieldnames
-            ):
-                key = next(
-                    name for name in reader.fieldnames if name.strip().lower() in {"url", "href", "link"}
-                )
+            if reader.fieldnames and any(name.strip().lower() in {"url", "href", "link"} for name in reader.fieldnames):
+                key = next(name for name in reader.fieldnames if name.strip().lower() in {"url", "href", "link"})
                 urls.extend(row[key].strip() for row in reader if row.get(key, "").strip())
             else:
                 for row in csv.reader(io.StringIO(text)):
@@ -2961,22 +2929,14 @@ def main(
     input_file: Optional[list[str]] = typer.Option(
         None, "--input-file", "-f", "--input", help="Read URLs from a file ('-' for stdin)."
     ),
-    input_format: str = typer.Option(
-        _d("input_format", "auto"), "--input-format", help="plain|json|csv|auto"
-    ),
+    input_format: str = typer.Option(_d("input_format", "auto"), "--input-format", help="plain|json|csv|auto"),
     base_url: Optional[str] = typer.Option(
         _d("base_url", None), "--base-url", help="Resolve relative URLs against this base."
     ),
-    connections: int = typer.Option(
-        _d("connections", 8), "--connections", "-c", min=1, help="Connections per file."
-    ),
+    connections: int = typer.Option(_d("connections", 8), "--connections", "-c", min=1, help="Connections per file."),
     jobs: int = typer.Option(_d("jobs", 1), "--jobs", "-j", min=1, help="Files in parallel."),
-    max_active: int = typer.Option(
-        _d("max_active", 1), "--max-active", min=1, help="Hard cap on concurrent files."
-    ),
-    max_per_host: int = typer.Option(
-        _d("max_per_host", 6), "--max-per-host", min=1, help="Connections per host."
-    ),
+    max_active: int = typer.Option(_d("max_active", 1), "--max-active", min=1, help="Hard cap on concurrent files."),
+    max_per_host: int = typer.Option(_d("max_per_host", 6), "--max-per-host", min=1, help="Connections per host."),
     retry: int = typer.Option(_d("retry", 5), "--retry", min=0, help="Retries per request."),
     retry_delay: float = typer.Option(
         _d("retry_delay", 1.0), "--retry-delay", min=0.0, help="Base retry delay in seconds."
@@ -2993,15 +2953,11 @@ def main(
     retry_http: Optional[str] = typer.Option(
         _d("retry_http", None), "--retry-http", help="HTTP statuses to retry (comma list)."
     ),
-    timeout: float = typer.Option(
-        _d("timeout", 30.0), "--timeout", min=0.0, help="Stall timeout in seconds."
-    ),
+    timeout: float = typer.Option(_d("timeout", 30.0), "--timeout", min=0.0, help="Stall timeout in seconds."),
     connect_timeout: float = typer.Option(
         _d("connect_timeout", 10.0), "--connect-timeout", min=0.0, help="Connect timeout."
     ),
-    max_redirects: int = typer.Option(
-        _d("max_redirects", 10), "--max-redirects", min=0, help="Redirect limit."
-    ),
+    max_redirects: int = typer.Option(_d("max_redirects", 10), "--max-redirects", min=0, help="Redirect limit."),
     continue_: bool = typer.Option(
         _d("continue", False), "--continue", "-C", help="Resume from an existing .part file."
     ),
@@ -3030,17 +2986,13 @@ def main(
     client_cert: Optional[str] = typer.Option(
         _d("client_cert", None), "--client-cert", help="Client certificate (PEM)."
     ),
-    client_key: Optional[str] = typer.Option(
-        _d("client_key", None), "--client-key", help="Client private key (PEM)."
-    ),
+    client_key: Optional[str] = typer.Option(_d("client_key", None), "--client-key", help="Client private key (PEM)."),
     user: Optional[str] = typer.Option(_d("user", None), "--user", help="HTTP basic user."),
     password: Optional[str] = typer.Option(_d("password", None), "--password", help="HTTP basic password."),
     bearer_token: Optional[str] = typer.Option(
         _d("bearer_token", None), "--bearer-token", help="Authorization: Bearer token."
     ),
-    netrc: Optional[str] = typer.Option(
-        _d("netrc", None), "--netrc", help="Read credentials from a netrc file."
-    ),
+    netrc: Optional[str] = typer.Option(_d("netrc", None), "--netrc", help="Read credentials from a netrc file."),
     header: Optional[list[str]] = typer.Option(
         _d("header", None), "--header", "-H", help="Extra request header (repeatable)."
     ),
@@ -3059,37 +3011,23 @@ def main(
     proxy: Optional[str] = typer.Option(_d("proxy", None), "--proxy", help="Proxy URL."),
     no_proxy: bool = typer.Option(_d("no_proxy", False), "--no-proxy", help="Ignore proxies."),
     http1: bool = typer.Option(_d("http1", False), "--http1", help="Disable HTTP/2."),
-    output: Optional[str] = typer.Option(
-        _d("output", None), "--output", "-O", help="Exact output path (single URL)."
-    ),
+    output: Optional[str] = typer.Option(_d("output", None), "--output", "-O", help="Exact output path (single URL)."),
     output_template: Optional[str] = typer.Option(
         _d("output_template", None),
         "--output-template",
         help="Per-file path template, e.g. {host}/{filename}.",
     ),
-    output_dir: str = typer.Option(
-        _d("output_dir", "."), "--output-dir", "-P", help="Destination directory."
-    ),
-    no_clobber: bool = typer.Option(
-        _d("no_clobber", False), "--no-clobber", "-nc", help="Skip existing files."
-    ),
-    overwrite: bool = typer.Option(
-        _d("overwrite", True), "--overwrite/--no-overwrite", help="Replace existing files."
-    ),
-    timestamping: bool = typer.Option(
-        _d("timestamping", False), "--timestamping", "-N", help="Skip up-to-date files."
-    ),
-    unique: bool = typer.Option(
-        _d("unique", False), "--unique", help="Never overwrite; add a numeric suffix."
-    ),
+    output_dir: str = typer.Option(_d("output_dir", "."), "--output-dir", "-P", help="Destination directory."),
+    no_clobber: bool = typer.Option(_d("no_clobber", False), "--no-clobber", "-nc", help="Skip existing files."),
+    overwrite: bool = typer.Option(_d("overwrite", True), "--overwrite/--no-overwrite", help="Replace existing files."),
+    timestamping: bool = typer.Option(_d("timestamping", False), "--timestamping", "-N", help="Skip up-to-date files."),
+    unique: bool = typer.Option(_d("unique", False), "--unique", help="Never overwrite; add a numeric suffix."),
     content_disposition: bool = typer.Option(
         _d("content_disposition", True),
         "--content-disposition/--no-content-disposition",
         help="Honour Content-Disposition filenames.",
     ),
-    manifest: bool = typer.Option(
-        _d("manifest", False), "--manifest", help="Write a .wget2.json sidecar per file."
-    ),
+    manifest: bool = typer.Option(_d("manifest", False), "--manifest", help="Write a .wget2.json sidecar per file."),
     max_filesize: Optional[str] = typer.Option(
         _d("max_filesize", None), "--max-filesize", help="Reject resources larger than this."
     ),
@@ -3109,36 +3047,20 @@ def main(
         "--mirror-list",
         help="Fallback URL(s) tried in order on failure.",
     ),
-    recursive: bool = typer.Option(
-        _d("recursive", False), "--recursive", "-r", help="Follow links on HTML pages."
-    ),
-    mirror: bool = typer.Option(
-        _d("mirror", False), "--mirror", "-m", help="Recursive mirroring (implies -r -N)."
-    ),
+    recursive: bool = typer.Option(_d("recursive", False), "--recursive", "-r", help="Follow links on HTML pages."),
+    mirror: bool = typer.Option(_d("mirror", False), "--mirror", "-m", help="Recursive mirroring (implies -r -N)."),
     level: int = typer.Option(_d("level", 5), "--level", "-l", min=0, help="Crawl depth."),
     spider: bool = typer.Option(_d("spider", False), "--spider", help="Only check URLs, write nothing."),
-    accept: Optional[list[str]] = typer.Option(
-        _d("accept", None), "--accept", "-A", help="Filename globs to accept."
-    ),
-    reject: Optional[list[str]] = typer.Option(
-        _d("reject", None), "--reject", "-R", help="Filename globs to reject."
-    ),
-    include: Optional[list[str]] = typer.Option(
-        _d("include", None), "--include", "-I", help="URL globs to include."
-    ),
-    exclude: Optional[list[str]] = typer.Option(
-        _d("exclude", None), "--exclude", "-X", help="URL globs to exclude."
-    ),
-    dry_run: bool = typer.Option(
-        _d("dry_run", False), "--dry-run", help="Probe only (HEAD), download nothing."
-    ),
+    accept: Optional[list[str]] = typer.Option(_d("accept", None), "--accept", "-A", help="Filename globs to accept."),
+    reject: Optional[list[str]] = typer.Option(_d("reject", None), "--reject", "-R", help="Filename globs to reject."),
+    include: Optional[list[str]] = typer.Option(_d("include", None), "--include", "-I", help="URL globs to include."),
+    exclude: Optional[list[str]] = typer.Option(_d("exclude", None), "--exclude", "-X", help="URL globs to exclude."),
+    dry_run: bool = typer.Option(_d("dry_run", False), "--dry-run", help="Probe only (HEAD), download nothing."),
     json_report: bool = typer.Option(_d("json", False), "--json", help="Emit a JSON report on stdout."),
     quiet: bool = typer.Option(_d("quiet", False), "--quiet", "-q", help="Only errors."),
     verbose: bool = typer.Option(_d("verbose", False), "--verbose", "-v", help="Debug logging."),
     progress: str = typer.Option(_d("progress", "rich"), "--progress", help="rich|plain|none"),
-    no_progress: bool = typer.Option(
-        _d("no_progress", False), "--no-progress", help="Disable the progress display."
-    ),
+    no_progress: bool = typer.Option(_d("no_progress", False), "--no-progress", help="Disable the progress display."),
     log_file: Optional[str] = typer.Option(_d("log_file", None), "--log-file", help="Log file."),
     log_level: str = typer.Option(_d("log_level", "info"), "--log-level", help="debug|info|warning|error"),
     json_logs: bool = typer.Option(_d("json_logs", False), "--json-logs", help="Emit log lines as JSON."),
@@ -3147,9 +3069,7 @@ def main(
         "--allow-unsafe-schemes",
         help="Permit file://, ftp:// and ftps://.",
     ),
-    config: Optional[str] = typer.Option(
-        None, "--config", help="TOML config file (defaults are auto-discovered)."
-    ),
+    config: Optional[str] = typer.Option(None, "--config", help="TOML config file (defaults are auto-discovered)."),
     no_config: bool = typer.Option(False, "--no-config", help="Ignore config files and WGET2_*."),
     check: bool = typer.Option(False, "--check", help="Verify the environment and exit."),
     version: bool = typer.Option(False, "--version", help="Print the version and exit."),

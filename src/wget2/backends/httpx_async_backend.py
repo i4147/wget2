@@ -43,9 +43,7 @@ class HttpxAsyncBackend(DownloadBackend):
         with self._lock:
             if self._loop is None:
                 loop = asyncio.new_event_loop()
-                thread = threading.Thread(
-                    target=self._run_loop, args=(loop,), name="wget2-asyncio", daemon=True
-                )
+                thread = threading.Thread(target=self._run_loop, args=(loop,), name="wget2-asyncio", daemon=True)
                 thread.start()
                 self._loop = loop
                 self._thread = thread
@@ -102,9 +100,7 @@ class HttpxAsyncBackend(DownloadBackend):
             try:
                 self._client = httpx.AsyncClient(**kwargs)
             except ImportError:
-                self.log.warning(
-                    "http/2 support unavailable (install 'httpx[http2]'); falling back to HTTP/1.1"
-                )
+                self.log.warning("http/2 support unavailable (install 'httpx[http2]'); falling back to HTTP/1.1")
                 kwargs["http2"] = False
                 self._client = httpx.AsyncClient(**kwargs)
         return self._client
@@ -149,9 +145,7 @@ class HttpxAsyncBackend(DownloadBackend):
         config = self.config
         client = await self._client_coro()
         try:
-            async with client.stream(
-                method.upper(), url, headers=list(headers), content=config.data
-            ) as response:
+            async with client.stream(method.upper(), url, headers=list(headers), content=config.data) as response:
                 info = ResponseInfo(
                     response.status_code,
                     str(response.url),

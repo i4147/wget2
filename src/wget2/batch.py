@@ -133,9 +133,7 @@ class BatchRunner:
                         results[index] = future.result()
                     except Exception as exc:  # pragma: no cover - defensive
                         self.log.error("worker crashed", error=str(exc), url=url_list[index])
-                        results[index] = FileResult(
-                            url=url_list[index], index=index, status="failed", error=str(exc)
-                        )
+                        results[index] = FileResult(url=url_list[index], index=index, status="failed", error=str(exc))
             summary.results = [results[key] for key in sorted(results)]
         if self.ctx.interrupt.is_set():
             summary.interrupted = True

@@ -89,9 +89,7 @@ class HttpxBackend(DownloadBackend):
         httpx = self._httpx
         config = self.config
         try:
-            with self.client().stream(
-                method.upper(), url, headers=list(headers), content=config.data
-            ) as response:
+            with self.client().stream(method.upper(), url, headers=list(headers), content=config.data) as response:
                 info = ResponseInfo(
                     response.status_code,
                     str(response.url),

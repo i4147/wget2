@@ -20,8 +20,7 @@ from wget2.errors import ConfigError
 class TestToml:
     def test_load_sections(self, tmp_path: Path) -> None:
         cfg = tmp_path / "wget2.toml"
-        cfg.write_text(
-            """
+        cfg.write_text("""
 [download]
 backend = "httpx"
 connections = 4
@@ -36,8 +35,7 @@ max_filesize = "10M"
 [http]
 header = ["X-Test: 1", "X-Other: 2"]
 user_agent = "custom/1.0"
-"""
-        )
+""")
         data = load_config_file(cfg)
         assert data["backend"] == "httpx"
         assert data["connections"] == 4

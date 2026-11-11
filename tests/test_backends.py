@@ -11,9 +11,7 @@ from wget2.backends.registry import REGISTRY
 from wget2.errors import BackendUnavailableError, HTTPStatusError, TransportError
 from wget2.request import RequestConfig
 
-AVAILABLE = [
-    name for name in ("pycurl", "httpx", "requests", "httpx_async") if REGISTRY.get(name).available()
-]
+AVAILABLE = [name for name in ("pycurl", "httpx", "requests", "httpx_async") if REGISTRY.get(name).available()]
 pytestmark = pytest.mark.network
 
 
@@ -218,9 +216,7 @@ def test_unavailable_backend_message(monkeypatch) -> None:
     from wget2.backends.pycurl_backend import PycurlBackend
 
     monkeypatch.setattr(PycurlBackend, "available", classmethod(lambda cls: False))
-    monkeypatch.setattr(
-        PycurlBackend, "availability_reason", classmethod(lambda cls: "missing optional dependency")
-    )
+    monkeypatch.setattr(PycurlBackend, "availability_reason", classmethod(lambda cls: "missing optional dependency"))
     with pytest.raises(BackendUnavailableError):
         REGISTRY.create("pycurl", RequestConfig())
 
