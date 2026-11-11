@@ -1,4 +1,5 @@
 from setuptools import find_packages, setup
+
 setup(
     name="wget2",
     version="1.4.7",

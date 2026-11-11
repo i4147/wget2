@@ -1,0 +1,67 @@
+# Example configuration for wget2 (TOML).
+#
+# Every key may also be set through the environment as WGET2_<KEY>
+# (e.g. WGET2_CONNECTIONS=16) or on the command line, which wins over both.
+# Sections are just namespaces: only the leaf key matters.
+
+[download]
+backend = "pycurl"          # pycurl | httpx | requests | httpx_async | auto
+connections = 8             # parallel connections per file
+max_per_host = 6            # concurrent requests per host
+jobs = 4                    # files downloaded in parallel
+max_active = 4              # hard cap on concurrent file downloads
+retry = 5                   # retries per request
+retry_delay = 1.0           # initial backoff (seconds)
+retry_backoff = 2.0         # exponential multiplier
+retry_max_delay = 60.0
+retry_http = "408,425,429,500,502,503,504"
+timeout = 30.0              # read/stall timeout
+connect_timeout = 10.0
+max_redirects = 10
+continue = true             # resume .part files (same as -C)
+keep_partial = true
+remove_on_error = false
+http2 = true
+
+[integrity]
+# checksum = ["sha256:0000..."]   # or use --checksum on the command line
+# checksum_file = "SHA256SUMS"
+manifest = true                   # write <file>.wget2.json sidecars
+
+[output]
+dir = "downloads"
+template = "{host}/{filename}"    # {url} {host} {path} {name} {filename} {stem} {ext} {index} {size} {date}
+no_clobber = false
+overwrite = true
+timestamping = false
+content_disposition = true
+
+[auth]
+# user = "alice"
+# bearer_token = "..."        # prefer WGET2_BEARER_TOKEN in the environment
+netrc = true
+
+[http]
+user_agent = "wget2/2.0.0"
+header = ["X-Requested-With: wget2"]
+# referer = "https://example.com/"
+# cookie = "session=abc"
+
+[transport]
+# proxy = "http://proxy.local:3128"
+# no_proxy = false
+insecure = false
+# ca_cert = "/etc/ssl/certs/ca-bundle.crt"
+# client_cert = "/etc/ssl/client.pem"
+# client_key = "/etc/ssl/client.key"
+
+[resources]
+# max_filesize = "4G"
+# rate_limit = "10M"                 # aggregate
+# rate_limit_per_connection = "2M"   # each connection
+
+[logging]
+log_level = "info"
+# log_file = "wget2.log"
+log_json = false
+progress = "rich"                   # rich | plain | none
